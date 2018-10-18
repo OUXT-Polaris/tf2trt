@@ -16,6 +16,11 @@ or
 qsub run.sh
 ```
 
+学習状況・モデルの詳細は以下のコマンドでtensorboard上で見れます。 http://localhost:6006
+```
+tensorboard --logdir=weights/"$project_name"_summary/
+```
+
 ## 2. TensorRTで実行可能なUFFに変換する(python)
 tensorflowで作ったグラフ、学習したckptファイルから、frozen_graph(.pbファイル)とUFFファイルを作る
 TensorRTのインストールされた環境下で、下のリンクに従ってtensorrtのuff python bindingをインストールする

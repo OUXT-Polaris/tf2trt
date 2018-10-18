@@ -27,18 +27,16 @@ int main(int argc, char *argv[]) {
   INetworkDefinition *network = builder->createNetwork();
   IUffParser *parser = createUffParser();
 
-  string project_name = "resnet_v1_50_finetuned_4class_altered_model";
-
-  parser->registerInput("images", DimsCHW(3, 244, 244));
+  parser->registerInput("images", DimsCHW(3, 224, 224));
   parser->registerOutput("resnet_v1_50/SpatialSqueeze");
-  parser->parse("../weights/" + project_name + ".uff", *network, DataType::kFLOAT);
+  parser->parse("resnet_v1_50_finetuned_4class_altered_model.uff", *network, DataType::kFLOAT);  // or, kHALF
 
   builder->setMaxBatchSize(1);
   builder->setMaxWorkspaceSize(1<<20);
   ICudaEngine *engine = builder->buildCudaEngine(*network);
 
   ofstream f;
-  f.open("../weights/" + project_name + ".plan");
+  f.open("resnet_v1_50_finetuned_4class_altered_model_float.plan");
   IHostMemory *serializedEngine = engine->serialize();
   f.write((char *)serializedEngine->data(), serializedEngine->size());
   f.close();
