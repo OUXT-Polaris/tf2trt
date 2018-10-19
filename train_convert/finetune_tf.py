@@ -17,7 +17,7 @@ project_name = 'resnet_v1_50_finetuned_4class_altered_model'
 # resnetの前処理、後処理のコード
 # https://github.com/NVIDIA-Jetson/tf_to_trt_image_classification/blob/master/scripts/model_meta.py を参考にした
 output_names = ['resnet_v1_50/SpatialSqueeze']
-def create_label_map(label_file='imagenet_labels_1001.txt'):
+def create_label_map(label_file='../imagenet_labels_1001.txt'):
     label_map = {}
     with open(label_file, 'r') as f:
         labels = f.readlines()
@@ -91,6 +91,8 @@ slim.summaries.add_scalar_summary(total_loss, 'total_loss', 'losses')
 tf.summary.scalar('loss', loss)
 tf.summary.scalar('total loss', total_loss)
 
+full = tf.train.GradientDescentOptimizer(1e-5).minimize(total_loss)  # 全部を動かす場合
+
 # accuracyの計算
 # https://gist.github.com/omoindrot/dedc857cdc0e680dfb1be99762990c9c/
 prediction = tf.to_int32(tf.argmax(logits, 1))
@@ -113,6 +115,8 @@ with tf.Session() as sess:
     # fine tuning
     num_epoch = 20
     num_batches_per_epoch = 100
+    num_epoch2 = 5
+    num_batches_per_epoch2 = 100
     for epoch in range(num_epoch):
         i = 0
         for x,y in gen:
@@ -123,7 +127,7 @@ with tf.Session() as sess:
                     image = x[i]
                     plt.imshow(image)
                     plt.show()
-                    out = sess.run([logits], feed_dict={images: image[None, ...], is_training: False})[0] 
+                    out = sess.run([logits], feed_dict={images: image[None, ...], is_training: False})[0]
                     print(postprocess_vgg(out[0,0,0]), out.shape)
             # 学習
             _, w_summary = sess.run([opt, summary], feed_dict={images: x, labels: y, is_training: True})
@@ -137,6 +141,22 @@ with tf.Session() as sess:
                 print(i, t_acc, train_loss)
             # epochの終了
             if i == num_batches_per_epoch:
+                break
+    for epoch in range(num_epoch2):
+        i = 0
+        for x,y in gen:
+            # 学習
+            _, w_summary = sess.run([full, summary], feed_dict={images: x, labels: y, is_training: True})
+            writer.add_summary(w_summary, (num_epoch * num_batches_per_epoch) + (i + epoch * num_batches_per_epoch2))
+            i += 1
+            # 10 batchに一回、画像のaccuracyを報告
+            if i % 10 == 0:
+                correct_pred = sess.run(correct_prediction, feed_dict={images: x, labels: y, is_training: False})
+                train_acc = float(correct_pred.sum()) / correct_pred.shape[0]
+                train_loss = total_loss.eval(feed_dict={images: X, labels: Y, is_training: False})
+                print(i, t_acc, train_loss)
+            # epochの終了
+            if i == num_batches_per_epoch2:
                 break
 
     # checkpoint saving
@@ -156,7 +176,6 @@ with tf.Session() as sess:
             # plt.imshow(image), plt.show()
 
             # is_training=Falseを入れないとdropoutやらが効いて結果がおかしくなる。推論時はFalseをfeedする
-            out = sess.run([logits], feed_dict={images: image[None, ...], is_training: False})[0] 
+            out = sess.run([logits], feed_dict={images: image[None, ...], is_training: False})[0]
             # print(postprocess_vgg(out[0,0,0]), out.shape)
             print(out)
-        
