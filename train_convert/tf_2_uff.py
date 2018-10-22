@@ -17,7 +17,6 @@ if len(sys.argv) == 4:
     PB = sys.argv[2]
     OUT = sys.argv[3]
     print(IN, PB, OUT)
-    exit(0)
 else:
     exit(0)
 
