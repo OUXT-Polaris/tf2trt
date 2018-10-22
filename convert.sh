@@ -20,7 +20,7 @@ echo "(input) $1"
 echo "(output) ${PLAN_FILE}"
 
 cd train_convert/
-python tf_2_uff.py $CKPT_FILE $PB_FILE $UFF_FILE
+python tf_2_uff.py ../$CKPT_FILE ../$PB_FILE ../$UFF_FILE
 
 cd ..
 cd plan/
