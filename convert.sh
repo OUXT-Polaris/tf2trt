@@ -1,6 +1,13 @@
 #!/bin/bash
 set -Ceu
 
+# 一度にrunするスクリプト
+# jetson tx2上で動作確認
+#
+# bash convert.sh weights/resnet_v1_50.ckpt test.png
+# @param ckpt: tensorflowで学習済みのResNet重みデータ
+# @param img:  最後にテストランをするイメージ
+
 if [ $# -ne 2 ]; then
   echo "hoge"
 fi
@@ -30,9 +37,9 @@ make
 
 echo "(exit)"
 
-# cd ..
-# cd infer/
-# cmake .
-# make
-# ./infer
+cd ..
+cd infer/
+cmake .
+make
+./infer ../${PLAN_FILE} ${TEST_IMAGE} map_false
 
