@@ -21,22 +21,21 @@ class Logger : public ILogger
 
 
 int main(int argc, char *argv[]) {
-  cout<<2<<endl;
-
   IBuilder *builder = createInferBuilder(gLogger);
   INetworkDefinition *network = builder->createNetwork();
   IUffParser *parser = createUffParser();
 
-  parser->registerInput("images", DimsCHW(3, 224, 224));
-  parser->registerOutput("resnet_v1_50/SpatialSqueeze");
-  parser->parse("resnet_v1_50_finetuned_4class_altered_model.uff", *network, DataType::kFLOAT);  // or, kHALF
+  // argv[1] = *.uff
+  parser->registerInput(argv[3], DimsCHW(3, 224, 224));
+  parser->registerOutput(argv[4]);
+  parser->parse(argv[1], *network, DataType::kFLOAT);  // or, kHALF
 
   builder->setMaxBatchSize(1);
   builder->setMaxWorkspaceSize(1<<20);
   ICudaEngine *engine = builder->buildCudaEngine(*network);
 
   ofstream f;
-  f.open("resnet_v1_50_finetuned_4class_altered_model_float.plan");
+  f.open(argv[2]);  // plan
   IHostMemory *serializedEngine = engine->serialize();
   f.write((char *)serializedEngine->data(), serializedEngine->size());
   f.close();

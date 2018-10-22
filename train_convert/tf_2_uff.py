@@ -10,7 +10,16 @@ import uff
 import resnet_v1
 slim = tf.contrib.slim
 
-project_name = 'resnet_v1_50_finetuned_4class_altered_model'
+import sys
+if len(sys.argv) == 4:
+    print(sys.argv)
+    IN = sys.argv[1]
+    PB = sys.argv[2]
+    OUT = sys.argv[3]
+    print(IN, PB, OUT)
+    exit(0)
+else:
+    exit(0)
 
 # 初期設定
 tf.reset_default_graph()
@@ -22,11 +31,11 @@ sess = tf.Session(config=tf_config)
 images = tf.placeholder(tf.float32, (None, 224, 224, 3), name='images')
 labels = tf.placeholder(tf.int32, (None, 1, 1, 4), name='labels')
 with slim.arg_scope(resnet_v1.resnet_arg_scope()):
-    logits, end_points = resnet_v1.resnet_v1_50(images, is_training=False, num_classes=4)  
+    logits, end_points = resnet_v1.resnet_v1_50(images, is_training=False, num_classes=4)
 
 # チェックポイントの読み込み
 saver = tf.train.Saver()
-saver.restore(save_path='../weights/'+ project_name + '.ckpt', sess=sess)
+saver.restore(save_path=IN, sess=sess)
 
 # freeze graph
 output_nodes=['resnet_v1_50/SpatialSqueeze']
@@ -38,14 +47,13 @@ from convert_relu6 import convertRelu6
 frozen_graph = convertRelu6(frozen_graph)
 
 # pbとして保存
-frozen_file = '../weights/' + project_name + '.pb'
-with open(frozen_file, 'wb') as f:
+with open(PB, 'wb') as f:
     f.write(frozen_graph.SerializeToString())
 
 # uffに変換
 uff_model = uff.from_tensorflow_frozen_model(
-        frozen_file=frozen_file,
+        frozen_file=PB,
         output_nodes=output_nodes,
-        output_filename='../weights/' + project_name + '.uff',
+        output_filename=OUT,
         text=False)
-print('finished', frozen_file)
+print('finished', PB)
