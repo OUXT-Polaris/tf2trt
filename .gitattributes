@@ -1,2 +1,0 @@
-weights/resnet_v1_50_ft_double_longer_1022.uff filter=lfs diff=lfs merge=lfs -text
-weights/resnet_v1_50_ft_double_longer_1022.plan filter=lfs diff=lfs merge=lfs -text
