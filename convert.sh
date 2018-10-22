@@ -26,7 +26,7 @@ cd ..
 cd plan/
 cmake .
 make
-./plan $UFF_FILE $PLAN_FILE $IN_NAME $OUT_NAME
+./plan ../${UFF_FILE} ../${PLAN_FILE} $IN_NAME $OUT_NAME
 
 echo "(exit)"
 
