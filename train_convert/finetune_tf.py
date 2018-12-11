@@ -5,6 +5,7 @@
 # https://gist.github.com/omoindrot/dedc857cdc0e680dfb1be99762990c9c/
 # https://github.com/NVIDIA-Jetson/tf_to_trt_image_classification/tree/master/scripts
 # https://github.com/tensorflow/models/blob/a41f00ac171cf53539b4e2de47f2e15ccb848c90/research/slim/nets/mobilenet_v1_train.py
+print('started')
 import numpy as np
 import keras
 import tensorflow as tf
@@ -12,7 +13,8 @@ import resnet_v1
 slim = tf.contrib.slim
 
 # 出力される重みデータのファイル名
-project_name = 'resnet_v1_50_finetuned_4class_altered_model'
+project_name = 'resnet_v1_50_ft_hawaii'
+classes = ['other', 'green', 'red', 'white', 'obstacle', 'orange', 'dock', 'light']
 
 # resnetの前処理、後処理のコード
 # https://github.com/NVIDIA-Jetson/tf_to_trt_image_classification/blob/master/scripts/model_meta.py を参考にした
@@ -33,9 +35,10 @@ def postprocess_vgg(output):
     labels_top5 = [(IMAGNET2012_LABEL_MAP[p + 1], output[p]) for p in predictions_top5]
     return labels_top5
 
-# dataset flowingはkerasを使う
+# [train data] dataset flowingはkerasを使う
 # batchごとに呼び出す。
-from keras.preprocessing.image import ImageDataGenerator
+print('preprocess')
+from keras.preprocessing.image import ImageDataGenerator, load_img, img_to_array
 datagen = ImageDataGenerator(
         data_format='channels_last',
         preprocessing_function=preprocess_vgg,
@@ -46,12 +49,46 @@ datagen = ImageDataGenerator(
         horizontal_flip=True,
         fill_mode='nearest')
 gen = datagen.flow_from_directory(
-        'test_dataset',
+        '/lustre/gj29/j29006/tf2trt/dataset_resized/train',
         target_size=(224,224),
         color_mode='rgb',
-        classes=['green', 'red', 'white', 'other'],
+        classes=classes,
         batch_size=16,
         class_mode='categorical')
+
+# [validation data] 普通に読み込んで、np.arrayにする
+import glob
+def dataset_from_directory(directory, classes, target_size, preprocessing_function):
+    x, y = [], []
+    for i, class_name in enumerate(classes):
+        for filename in glob.glob(directory + '/' + class_name + '/*'):
+            img = load_img(filename, target_size=target_size)
+            x.append(preprocessing_function(img_to_array(img)))
+            cat = np.zeros(len(classes))
+            cat[i] = 1
+            y.append(cat)
+    n = len(x)
+    X, Y = np.zeros(tuple([n, target_size[0], target_size[1], 3])), np.zeros((n, len(classes)))
+    for i in range(n):
+        X[i] = x[i]
+        Y[i] = y[i]
+    return X,Y
+
+vx1, vy1 = dataset_from_directory(
+    '/lustre/gj29/j29006/tf2trt/dataset_resized/validation',
+    classes=classes,
+    target_size=(224,224),
+    preprocessing_function=preprocess_vgg
+)
+vx2, vy2 = dataset_from_directory(
+    '/lustre/gj29/j29006/tf2trt/dataset_resized/train',
+    classes=classes,
+    target_size=(224,224),
+    preprocessing_function=preprocess_vgg
+)
+vx = np.concatenate((vx1,vx2), axis=0)
+vy = np.concatenate((vy1,vy2), axis=0)
+print(vx.shape,vy.shape)
 
 # グラフの初期化Variable v1/weights already exists,reuse=True or reuse=tf.AUTO_REUS 対策
 tf.reset_default_graph()  
@@ -59,10 +96,10 @@ tf.reset_default_graph()
 # モデル定義
 # https://gist.github.com/omoindrot/dedc857cdc0e680dfb1be99762990c9c/
 images = tf.placeholder(tf.float32, (None, 224, 224, 3), name='images')
-labels = tf.placeholder(tf.int32, (None, 4), name='labels')
+labels = tf.placeholder(tf.int32, (None, len(classes)), name='labels')
 is_training = tf.placeholder(tf.bool)
 with slim.arg_scope(resnet_v1.resnet_arg_scope()):
-    logits, end_points = resnet_v1.resnet_v1_50(images, is_training=is_training, num_classes=4)  
+    logits, end_points = resnet_v1.resnet_v1_50(images, is_training=is_training, num_classes=len(classes))
     
 # モデルの演算の種類を列挙する
 # A = set()
@@ -102,7 +139,6 @@ accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 tf.summary.scalar('accuracy', accuracy)
 summary = tf.summary.merge_all()
 
-
 with tf.Session() as sess:
     # 初期化
     # restorer.restore(sess, "./hoge/resnet_v1_50.ckpt") # 全体を復元する場合
@@ -113,10 +149,10 @@ with tf.Session() as sess:
     writer = tf.summary.FileWriter('../weights/' + project_name + '_summary', sess.graph)
     
     # fine tuning
-    num_epoch = 20
-    num_batches_per_epoch = 100
-    num_epoch2 = 5
-    num_batches_per_epoch2 = 100
+    num_epoch = 50
+    num_batches_per_epoch = 200
+    num_epoch2 = 20
+    num_batches_per_epoch2 = 200
     for epoch in range(num_epoch):
         i = 0
         for x,y in gen:
@@ -135,10 +171,10 @@ with tf.Session() as sess:
             i += 1
             # 10 batchに一回、画像のaccuracyを報告
             if i % 10 == 0:
-                correct_pred = sess.run(correct_prediction, feed_dict={images: x, labels: y, is_training: False})
+                correct_pred = sess.run(correct_prediction, feed_dict={images: vx, labels: vy, is_training: False})
                 train_acc = float(correct_pred.sum()) / correct_pred.shape[0]
-                train_loss = total_loss.eval(feed_dict={images: X, labels: Y, is_training: False})
-                print(i, t_acc, train_loss)
+                train_loss = total_loss.eval(feed_dict={images: vx, labels: vy, is_training: False})
+                print('[a]', i, train_acc, train_loss)
             # epochの終了
             if i == num_batches_per_epoch:
                 break
@@ -151,10 +187,10 @@ with tf.Session() as sess:
             i += 1
             # 10 batchに一回、画像のaccuracyを報告
             if i % 10 == 0:
-                correct_pred = sess.run(correct_prediction, feed_dict={images: x, labels: y, is_training: False})
+                correct_pred = sess.run(correct_prediction, feed_dict={images: vx, labels: vy, is_training: False})
                 train_acc = float(correct_pred.sum()) / correct_pred.shape[0]
-                train_loss = total_loss.eval(feed_dict={images: X, labels: Y, is_training: False})
-                print(i, t_acc, train_loss)
+                train_loss = total_loss.eval(feed_dict={images: vx, labels: vy, is_training: False})
+                print('[b]', i, train_acc, train_loss)
             # epochの終了
             if i == num_batches_per_epoch2:
                 break
