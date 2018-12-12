@@ -13,7 +13,7 @@ import resnet_v1
 slim = tf.contrib.slim
 
 # 出力される重みデータのファイル名
-project_name = 'resnet_v1_50_ft_hawaii'
+project_name = 'resnet_v1_50_ft_hawaii_longer'
 classes = ['other', 'green', 'red', 'white', 'obstacle', 'orange', 'dock', 'light']
 
 # resnetの前処理、後処理のコード
@@ -149,9 +149,9 @@ with tf.Session() as sess:
     writer = tf.summary.FileWriter('../weights/' + project_name + '_summary', sess.graph)
     
     # fine tuning
-    num_epoch = 50
+    num_epoch = 100
     num_batches_per_epoch = 200
-    num_epoch2 = 20
+    num_epoch2 = 50
     num_batches_per_epoch2 = 200
     for epoch in range(num_epoch):
         i = 0
