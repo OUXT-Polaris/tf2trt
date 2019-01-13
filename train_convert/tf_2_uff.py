@@ -39,8 +39,8 @@ saver.restore(save_path=IN, sess=sess)
 # freeze graph
 output_nodes=['resnet_v1_50/SpatialSqueeze']
 frozen_graph = tf.graph_util.convert_variables_to_constants(
-        sess, 
-        sess.graph.as_graph_def(), 
+        sess,
+        sess.graph.as_graph_def(),
         output_node_names=output_nodes)
 from convert_relu6 import convertRelu6
 frozen_graph = convertRelu6(frozen_graph)
