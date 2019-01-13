@@ -28,9 +28,9 @@ sess = tf.Session(config=tf_config)
 
 # モデルの構築
 images = tf.placeholder(tf.float32, (None, 224, 224, 3), name='images')
-labels = tf.placeholder(tf.int32, (None, 1, 1, 4), name='labels')
+labels = tf.placeholder(tf.int32, (None, 1, 1, 8), name='labels')
 with slim.arg_scope(resnet_v1.resnet_arg_scope()):
-    logits, end_points = resnet_v1.resnet_v1_50(images, is_training=False, num_classes=4)
+    logits, end_points = resnet_v1.resnet_v1_50(images, is_training=False, num_classes=8)
 
 # チェックポイントの読み込み
 saver = tf.train.Saver()
